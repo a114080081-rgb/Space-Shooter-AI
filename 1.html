@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Bit Blaster XL - Ultimate Survival Edition</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; display: flex; justify-content: center; align-items: center; height: 100vh; color: #fff; font-family: 'Courier New', Courier, monospace; }
+        #gameContainer { position: relative; width: 800px; height: 800px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.2); overflow: hidden; background: #0a0a0a;}
+        canvas { display: block; }
+        .scanlines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 4px, 6px 100%; pointer-events: none; z-index: 10; }
+        #ui { position: absolute; top: 15px; left: 20px; z-index: 20; pointer-events: none; }
+        #ammoDisplay { font-size: 28px; font-weight: bold; color: #0f0; text-shadow: 2px 2px 0px #000; margin-bottom: 5px; }
+        #weaponDisplay { font-size: 20px; font-weight: bold; color: #fff; text-shadow: 2px 2px 0px #000; margin-bottom: 5px; }
+        #autoFireDisplay { font-size: 18px; font-weight: bold; color: #aaa; text-shadow: 2px 2px 0px #000; margin-bottom: 10px; }
+        .bar-container { width: 150px; height: 15px; border: 2px solid #fff; position: relative;}
+        #energyBar { width: 100%; height: 100%; background: #0df; transition: width 0.1s; }
+        #uiRight { position: absolute; top: 15px; right: 20px; z-index: 20; text-align: right; pointer-events: none; }
+        #scoreDisplay { font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0px #000; }
+        #highScoreDisplay { font-size: 18px; font-weight: bold; color: #ff0; margin-top: 5px; text-shadow: 2px 2px 0px #000; }
+        #bombsDisplay { font-size: 20px; font-weight: bold; color: #ff0; margin-top: 10px; text-shadow: 2px 2px 0px #000; }
+        #shieldsDisplay { font-size: 20px; font-weight: bold; color: #0f8; margin-top: 5px; text-shadow: 2px 2px 0px #000; }
+        #controlsOverlay { position: absolute; bottom: 20px; width: 100%; text-align: center; color: rgba(255, 255, 255, 0.5); font-size: 14px; z-index: 15; pointer-events: none; text-shadow: 1px 1px 0px #000; line-height: 1.5; }
+        
+        #startScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 40; }
+        #startScreen h1 { font-size: 56px; color: #0df; margin-bottom: 10px; text-shadow: 3px 3px 0px #000;}
+        #startScreen p { font-size: 18px; margin: 5px; color: #aaa; }
+        
+        #gameOverScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 30; }
+        #gameOverScreen h1 { font-size: 48px; color: #f44; margin-bottom: 10px;}
+        #gameOverScreen p { font-size: 20px; margin: 5px; }
+        .btn { margin-top: 30px; padding: 12px 35px; background: #fff; border: none; font-size: 24px; font-weight: bold; cursor: pointer; font-family: 'Courier New', Courier, monospace; box-shadow: 4px 4px 0px #888; transition: 0.1s; }
+        .btn:hover { background: #0f0; box-shadow: 2px 2px 0px #444; transform: translate(2px, 2px); }
+    </style>
+</head>
+<body>
+<div id="gameContainer">
+    <canvas id="gameCanvas" width="800" height="800"></canvas>
+    <div class="scanlines"></div>
+    <div id="ui">
+        <div id="ammoDisplay">AMMO: 100</div>
+        <div id="weaponDisplay">WEAPON: BASIC</div>
+        <div id="autoFireDisplay">[F] AUTO-FIRE: ON</div>
+        <div style="font-weight:bold; text-shadow: 2px 2px 0px #000; margin-bottom:2px;">ENERGY</div>
+        <div class="bar-container"><div id="energyBar"></div></div>
+    </div>
+    <div id="uiRight">
+        <div id="scoreDisplay">SCORE: 0</div>
+        <div id="highScoreDisplay">HIGH SCORE: 0</div>
+        <div id="bombsDisplay">BOMBS: 0</div>
+        <div id="shieldsDisplay">SHIELDS: 3</div>
+    </div>
+    <div id="controlsOverlay">
+        [← / →] 轉向 | [↑] 加速 | [空白鍵] 手動射擊 | [F] 切換自動射擊 | [B] 炸彈<br>
+        <span style="color:#f88;">⚠️ 沒有煞車！撞擊致命邊界即 Game Over！</span>
+    </div>
+
+    <div id="startScreen">
+        <h1>BIT BLASTER XL</h1>
+        <p>Vibe Survival Edition</p>
+        <p style="margin-top: 20px;">[F] Auto-Fire is ENABLED by default</p>
+        <button class="btn" onclick="startGame()">START GAME</button>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1>GAME OVER</h1>
+        <p id="deathReason">系統停機</p>
+        <p id="finalScoreDisplay">SCORE: 0</p>
+        <p id="finalHighScoreDisplay" style="color: #ff0;">HIGH SCORE: 0</p>
+        <button class="btn" onclick="initGame()">RESTART</button>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const SHIP_BASE_SPEED = 150;     
+const SHIP_BOOST_SPEED = 375;    
+const SHIP_TURN_RATE = 4.0;      
+const BULLET_SPEED = 600;        
+const BULLET_RANGE = 1200;       
+const BULLET_SIZE_BASE = 8;      
+
+const WEAPONS_MAP = {
+    'Spread': { char: 'S', color: '#ff8' }, 'Mirror': { char: 'M', color: '#8ff' },
+    'Rapid': { char: 'R', color: '#f8f' }, 'Bounce': { char: 'B', color: '#f88' },
+    'Giant': { char: 'G', color: '#8f8' }, 'Explode': { char: 'E', color: '#fa0' },
+    'Laser': { char: 'L', color: '#0ff' }, 'Homing': { char: 'H', color: '#a0f' },
+    'Through': { char: 'T', color: '#ff0' }, 'Trail': { char: 'Tr', color: '#aaa' },
+    'Shield': { char: 'Sh', color: '#f00' }, 'Magnet': { char: 'Mg', color: '#0df' }
+};
+const WEAPON_TYPES = Object.keys(WEAPONS_MAP);
+
+let lastTime = 0; let isGameOver = false; let score = 0; let gameTime = 0; 
+let timeSinceLastSpawn = 0; let globalDropTimer = 3; 
+let isAutoFire = true; 
+let highScore = localStorage.getItem('BitBlaster_HighScore') || 0;
+let shakeTime = 0; 
+
+let ship, bullets, meteors, enemies, mines, particles, pickups;
+
+// --- 音效系統 ---
+let audioCtx;
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playCrunchSound() {
+    if (!audioCtx) return;
+    let bufferSize = audioCtx.sampleRate * 0.1;
+    let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    let data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    let noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+    let filter = audioCtx.createBiquadFilter(); 
+    filter.type = 'lowpass'; filter.frequency.value = 600; 
+    let gain = audioCtx.createGain(); 
+    gain.gain.setValueAtTime(0.8, audioCtx.currentTime); 
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+    noise.start();
+}
+
+function playHitSound() {
+    if (!audioCtx) return;
+    let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
+    osc.type = 'square'; osc.frequency.setValueAtTime(100, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.3);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    gain.gain.setValueAtTime(1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+}
+
+const keys = {};
+window.addEventListener('keydown', (e) => { 
+    if (e.code === 'KeyF' && !keys['KeyF']) isAutoFire = !isAutoFire;
+    keys[e.code] = true; 
+});
+window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+function initShip() {
+    return { 
+        x: 400, y: 400, angle: -Math.PI / 2, radius: 16, 
+        ammo: 100, energy: 100, bombs: 0, lives: 3, invincibleTimer: 0, 
+        fireTimer: 0, weapon: 'Basic', shieldAngle: 0, trailTimer: 0 
+        // weaponTimer 已移除：武器現在永久持續直到拾取下一個
+    };
+}
+
+function startGame() {
+    document.getElementById('startScreen').style.display = 'none';
+    initAudio();
+    initGame();
+}
+
+function initGame() {
+    ship = initShip();
+    bullets = []; meteors = []; enemies = []; mines = []; particles = []; pickups = [];
+    score = 0; gameTime = 0; timeSinceLastSpawn = 0; globalDropTimer = 3; shakeTime = 0; isGameOver = false;
+    isAutoFire = true;
+    highScore = localStorage.getItem('BitBlaster_HighScore') || 0;
+    document.getElementById('gameOverScreen').style.display = 'none';
+    lastTime = performance.now(); requestAnimationFrame(gameLoop);
+}
+
+function spawnPickupAtEdge(specificType, startX, startY) {
+    let x, y, angle;
+    if (startX !== undefined && startY !== undefined) {
+        x = startX; y = startY; angle = Math.random() * Math.PI * 2;
+    } else {
+        let edge = Math.floor(Math.random() * 4);
+        if(edge === 0) { x = Math.random() * 800; y = -50; angle = Math.random() * Math.PI/2 + Math.PI/4; }
+        else if(edge === 1) { x = 850; y = Math.random() * 800; angle = Math.random() * Math.PI/2 + Math.PI/2 + Math.PI/4; }
+        else if(edge === 2) { x = Math.random() * 800; y = 850; angle = Math.random() * Math.PI/2 - Math.PI*3/4; }
+        else { x = -50; y = Math.random() * 800; angle = Math.random() * Math.PI/2 - Math.PI/4; }
+    }
+    
+    let type = specificType;
+    if (!type) {
+        let rand = Math.random();
+        if (rand > 0.90) type = 'BOMB';
+        else if (rand > 0.85) type = 'LIFE'; 
+        else if (rand > 0.30) type = 'AMMO'; 
+        else type = WEAPON_TYPES[Math.floor(Math.random() * WEAPON_TYPES.length)];
+    }
+    let speed = 100 + Math.random() * 80; 
+    pickups.push({ x, y, type, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, radius: 12, life: 30 });
+}
+
+function spawnMeteor(x, y, size, vx, vy) { meteors.push({ x, y, size, vx, vy, radius: size * 18, id: Math.random() }); }
+
+function spawnEnemy() {
+    let edge = Math.floor(Math.random() * 4); let x, y;
+    if(edge === 0) { x = Math.random() * 800; y = -50; } else if(edge === 1) { x = 850; y = Math.random() * 800; }
+    else if(edge === 2) { x = Math.random() * 800; y = 850; } else { x = -50; y = Math.random() * 800; }
+
+    let possibleEnemies = [];
+    if (score >= 1500) possibleEnemies.push('basic');
+    if (score >= 3000) possibleEnemies.push('bomb');
+    if (score >= 8000) possibleEnemies.push('green');
+    if (score >= 12000) possibleEnemies.push('red');
+    if (possibleEnemies.length === 0) return;
+    let type = possibleEnemies[Math.floor(Math.random() * possibleEnemies.length)];
+
+    if (type === 'basic') {
+        let dir = Math.random() > 0.5 ? 1 : -1;
+        enemies.push({ type: 'basic', x: dir===1 ? -50 : 850, y: Math.random()*600+100, vx: dir*120, vy: 0, radius: 14, hp: 2, fireTimer: 1.5 });
+    } else if (type === 'bomb') {
+        let angleToCenter = Math.atan2(400 - y, 400 - x);
+        enemies.push({ type: 'bomb', x, y, vx: Math.cos(angleToCenter)*50, vy: Math.sin(angleToCenter)*50, radius: 16, hp: 2 });
+    } else if (type === 'green') {
+        enemies.push({ type: 'green', x, y, vx: 0, vy: 0, radius: 14, hp: 1, stateTimer: 1.0, state: 'aiming' });
+    } else if (type === 'red') {
+        let dir = Math.random() > 0.5 ? 1 : -1;
+        enemies.push({ type: 'red', x: dir===1 ? -50 : 850, y: Math.random()*600+100, vx: dir*100, vy: 0, radius: 16, hp: 2, stateTimer: 3.0, state: 'moving', shotsFired: 0 });
+    }
+}
+
+function createExplosion(x, y, color, count) {
+    for(let i=0; i<count; i++) {
+        let angle = Math.random() * Math.PI * 2; let speed = Math.random() * 100 + 30;
+        particles.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: Math.random() * 0.5 + 0.2, maxLife: Math.random() * 0.5 + 0.2, color });
+    }
+}
+
+function useBomb() {
+    if (ship.bombs <= 0) return;
+    ship.bombs--;
+    meteors.forEach(m => { score += m.size === 3 ? 200 : 100; createExplosion(m.x, m.y, '#aaa', 15); });
+    enemies.forEach(e => { score += 250; createExplosion(e.x, e.y, '#f44', 20); });
+    mines.forEach(m => createExplosion(m.x, m.y, '#f00', 10));
+    meteors = []; enemies = []; mines = []; bullets = [];
+    shakeTime = 0.5; playHitSound();
+    createExplosion(400, 400, '#fff', 150);
+}
+
+function takeDamage(reason) {
+    if (isGameOver || ship.invincibleTimer > 0) return;
+    if (ship.lives > 0) {
+        ship.lives--;
+        ship.invincibleTimer = 1.5; 
+        shakeTime = 0.4; playHitSound();
+        createExplosion(ship.x, ship.y, '#0f8', 30); 
+    } else {
+        isGameOver = true;
+        document.getElementById('gameOverScreen').style.display = 'flex';
+        document.getElementById('deathReason').innerText = reason;
+        document.getElementById('finalScoreDisplay').innerText = "SCORE: " + score;
+        document.getElementById('finalHighScoreDisplay').innerText = "HIGH SCORE: " + highScore;
+        createExplosion(ship.x, ship.y, '#fff', 80);
+        shakeTime = 0.8; playHitSound();
+    }
+}
+
+function fireWeapon(isAutoFireOnly) {
+    if (ship.ammo <= 0) return; 
+    
+    let type = ship.weapon; let cost = 1; let fr = 0.22; let spd = BULLET_SPEED;
+    if(type === 'Spread') cost = 2; if(type === 'Rapid') { fr = 0.1; spd = 900; }
+    if(type === 'Giant') cost = 2; if(type === 'Explode') { fr = 0.6; cost = 6; }
+    if(type === 'Homing') cost = 5; if(type === 'Laser') { fr = 0.05; spd = 1200; cost = 0.5; }
+
+    if (ship.fireTimer <= 0) {
+        let actualCost = isAutoFireOnly ? cost * 0.75 : cost;
+        ship.ammo -= actualCost; if(ship.ammo < 0) ship.ammo = 0;
+        ship.fireTimer = fr;
+        let b = { x: ship.x, y: ship.y, distance: 0, range: BULLET_RANGE, type: type, size: BULLET_SIZE_BASE, color: '#ff0' };
+        let dx = Math.cos(ship.angle), dy = Math.sin(ship.angle);
+
+        if(type === 'Spread') {
+            [-0.25, 0, 0.25].forEach(a => bullets.push({...b, vx: Math.cos(ship.angle+a)*spd, vy: Math.sin(ship.angle+a)*spd}));
+        } else if (type === 'Mirror') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd}); bullets.push({...b, vx: -dx*spd, vy: -dy*spd});
+        } else if (type === 'Giant') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, size: 24, giant: true, color: '#8f8'});
+        } else if (type === 'Explode') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, explode: true, color: '#fa0'});
+        } else if (type === 'Laser') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, through: true, range: 250, color: '#0ff', life: 0.15, hitIds: []});
+        } else if (type === 'Bounce') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, bounce: true, color: '#f88'});
+        } else if (type === 'Homing') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, homing: true, color: '#a0f'});
+        } else if (type === 'Through') {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd, through: true, color: '#ff0', hitIds: []});
+        } else {
+            bullets.push({...b, vx: dx*spd, vy: dy*spd});
+        }
+    }
+}
+
+function update(dt) {
+    if (shakeTime > 0) shakeTime -= dt;
+    if (isGameOver) return;
+    gameTime += dt;
+    if (ship.invincibleTimer > 0) ship.invincibleTimer -= dt;
+    
+    if (score > highScore) { highScore = score; localStorage.setItem('BitBlaster_HighScore', highScore); }
+    
+    globalDropTimer -= dt;
+    if (globalDropTimer <= 0) { spawnPickupAtEdge(); globalDropTimer = 3 + Math.random() * 3; }
+
+    if (!keys['ArrowUp'] && ship.energy < 100) ship.energy = Math.min(100, ship.energy + 15 * dt);
+    if (keys['KeyB']) { keys['KeyB'] = false; useBomb(); }
+
+    // 移除：ship.weaponTimer 倒數邏輯已刪除，武器永久持續直到拾取下一個
+
+    let isBoosting = keys['ArrowUp'] && ship.energy > 0;
+    let currentSpeed = isBoosting ? SHIP_BOOST_SPEED : SHIP_BASE_SPEED;
+    if (isBoosting) { ship.energy -= 40 * dt; createExplosion(ship.x - Math.cos(ship.angle)*16, ship.y - Math.sin(ship.angle)*16, '#0df', 1); }
+    if (keys['ArrowLeft']) ship.angle -= SHIP_TURN_RATE * dt;
+    if (keys['ArrowRight']) ship.angle += SHIP_TURN_RATE * dt;
+    ship.x += Math.cos(ship.angle) * currentSpeed * dt;
+    ship.y += Math.sin(ship.angle) * currentSpeed * dt;
+    
+    if (ship.x < 0 || ship.x > 800 || ship.y < 0 || ship.y > 800) { 
+        isGameOver = true; 
+        document.getElementById('gameOverScreen').style.display = 'flex';
+        document.getElementById('deathReason').innerText = "撞擊致命邊界！";
+        document.getElementById('finalScoreDisplay').innerText = "SCORE: " + score;
+        document.getElementById('finalHighScoreDisplay').innerText = "HIGH SCORE: " + highScore;
+        createExplosion(ship.x, ship.y, '#fff', 80);
+        shakeTime = 0.8; playHitSound();
+        return; 
+    }
+
+    ship.fireTimer -= dt;
+    let isAutoFireOnly = isAutoFire && !keys['Space'];
+    if (keys['Space'] || isAutoFire) fireWeapon(isAutoFireOnly); 
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        if(b.homing && meteors.length > 0) {
+            let target = meteors[0]; let minDist = 9999;
+            meteors.forEach(m => { let d = Math.hypot(m.x - b.x, m.y - b.y); if(d < minDist){ minDist = d; target = m; }});
+            let angleToTarget = Math.atan2(target.y - b.y, target.x - b.x);
+            let currentAngle = Math.atan2(b.vy, b.vx);
+            let newAngle = currentAngle + (angleToTarget - currentAngle) * 5 * dt;
+            b.vx = Math.cos(newAngle) * BULLET_SPEED; b.vy = Math.sin(newAngle) * BULLET_SPEED;
+        }
+        b.x += b.vx * dt; b.y += b.vy * dt; b.distance += Math.hypot(b.vx * dt, b.vy * dt);
+        if(b.life !== undefined) { b.life -= dt; if(b.life <= 0) { bullets.splice(i, 1); continue; } }
+        if (b.bounce) {
+            if(b.x < 0 || b.x > 800) { b.vx *= -1; b.x = Math.max(0, Math.min(800, b.x)); }
+            if(b.y < 0 || b.y > 800) { b.vy *= -1; b.y = Math.max(0, Math.min(800, b.y)); }
+        }
+        if ((!b.bounce && (b.x < 0 || b.x > 800 || b.y < 0 || b.y > 800)) || b.distance > b.range) { bullets.splice(i, 1); }
+    }
+
+    timeSinceLastSpawn += dt;
+    let baseSpawnRate = score >= 10000 ? Math.max(0.4, 1.2 - ((score - 10000) / 15000)) : Math.max(1.2, 2.5 - (score / 10000));
+
+    if (timeSinceLastSpawn > baseSpawnRate) { 
+        if (score >= 1500 && Math.random() < 0.35) {
+            spawnEnemy();
+        } else {
+            let edge = Math.floor(Math.random() * 4); let x, y, angle;
+            if(edge === 0) { x = Math.random() * 800; y = -50; angle = Math.random() * Math.PI/2 + Math.PI/4; }
+            else if(edge === 1) { x = 850; y = Math.random() * 800; angle = Math.random() * Math.PI/2 + Math.PI/2 + Math.PI/4; }
+            else if(edge === 2) { x = Math.random() * 800; y = 850; angle = Math.random() * Math.PI/2 - Math.PI*3/4; }
+            else { x = -50; y = Math.random() * 800; angle = Math.random() * Math.PI/2 - Math.PI/4; }
+            let speed = 70 + Math.random() * 50; let size = 1;
+            if (score >= 600 && Math.random() > 0.4) { size = 3; }
+            spawnMeteor(x, y, size, Math.cos(angle) * speed, Math.sin(angle) * speed);
+        }
+        timeSinceLastSpawn = 0; 
+    }
+
+
+    let shieldPositions = [];
+    if (ship.weapon === 'Shield') {
+        ship.shieldAngle += (isBoosting ? 8 : 4) * dt;
+        for(let s=0; s<5; s++) shieldPositions.push({ x: ship.x + Math.cos(ship.shieldAngle + (Math.PI*2/5)*s)*35, y: ship.y + Math.sin(ship.shieldAngle + (Math.PI*2/5)*s)*35, radius: 8 });
+    }
+
+    function checkBulletHit(target, radius) {
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            let b = bullets[j];
+            if (Math.hypot(target.x - b.x, target.y - b.y) < radius + b.size) {
+                if(b.through) { if(!b.hitIds.includes(target.id)) b.hitIds.push(target.id); else continue; } 
+                else {
+                    if(b.giant) { for(let a of [-Math.PI/4, Math.PI/4, -Math.PI*3/4, Math.PI*3/4]) bullets.push({x: b.x, y: b.y, vx: Math.cos(a)*BULLET_SPEED, vy: Math.sin(a)*BULLET_SPEED, size: 8, distance: 0, range: 600, color: '#8f8'}); }
+                    else if (b.explode) { createExplosion(b.x, b.y, '#fa0', 20); for(let a=0; a<Math.PI*2; a+=Math.PI/4) bullets.push({x: b.x, y: b.y, vx: Math.cos(a)*800, vy: Math.sin(a)*800, size: 6, distance: 0, range: 200, through: true, hitIds:[], color: '#fa0'}); }
+                    bullets.splice(j, 1);
+                }
+                return true;
+            }
+        } return false;
+    }
+
+    for (let i = meteors.length - 1; i >= 0; i--) {
+        let m = meteors[i]; m.x += m.vx * dt; m.y += m.vy * dt;
+        if (m.x < -200 || m.x > 1000 || m.y < -200 || m.y > 1000) { meteors.splice(i, 1); continue; }
+        if (Math.hypot(m.x - ship.x, m.y - ship.y) < m.radius + ship.radius) takeDamage("遭到隕石撞毀！"); 
+        let hit = false;
+        shieldPositions.forEach(sp => { if (Math.hypot(m.x - sp.x, m.y - sp.y) < m.radius + sp.radius) hit = true; });
+        if (!hit) hit = checkBulletHit(m, m.radius);
+        if (hit) {
+            playCrunchSound(); createExplosion(m.x, m.y, '#aaa', 15 * m.size);
+            score += m.size === 3 ? 200 : 100;
+            if (m.size === 3) {
+                let baseA = Math.atan2(m.vy, m.vx); let speed = Math.hypot(m.vx, m.vy) * 1.3;
+                [-Math.PI/4, Math.PI/4, -Math.PI/2, Math.PI/2].forEach(a => spawnMeteor(m.x, m.y, 1, Math.cos(baseA+a)*speed, Math.sin(baseA+a)*speed));
+            } else {
+                if(Math.random() > 0.3) spawnPickupAtEdge('AMMO', m.x, m.y); 
+            }
+            meteors.splice(i, 1);
+        }
+    }
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        let e = enemies[i];
+        e.x += e.vx * dt; e.y += e.vy * dt;
+
+        if (e.type === 'basic') {
+            e.fireTimer -= dt;
+            if(e.fireTimer <= 0 && e.x > 0 && e.x < 800) { e.fireTimer = 1.5; mines.push({ x: e.x, y: e.y, vx: 0, vy: 100, radius: 6 }); }
+            if (e.x < -200 || e.x > 1000) { enemies.splice(i, 1); continue; }
+        } else if (e.type === 'bomb') {
+            if (Math.hypot(400 - e.x, 400 - e.y) < 10) {
+                playHitSound(); createExplosion(e.x, e.y, '#fa0', 30);
+                for(let a=0; a<Math.PI*2; a+=Math.PI/3) mines.push({x: e.x, y: e.y, vx: Math.cos(a)*50, vy: Math.sin(a)*50, radius: 6});
+                enemies.splice(i, 1); continue;
+            }
+        } else if (e.type === 'green') {
+            e.stateTimer -= dt;
+            if (e.state === 'aiming' && e.stateTimer <= 0) {
+                let angle = Math.atan2(ship.y - e.y, ship.x - e.x); 
+                e.vx = Math.cos(angle) * 262.5; e.vy = Math.sin(angle) * 262.5; 
+                e.state = 'dashing'; e.stateTimer = 1.0;
+            } else if (e.state === 'dashing' && e.stateTimer <= 0) { e.vx = 0; e.vy = 0; e.state = 'aiming'; e.stateTimer = 1.0; }
+            if (e.x < -200 || e.x > 1000 || e.y < -200 || e.y > 1000) { enemies.splice(i, 1); continue; }
+        } else if (e.type === 'red') {
+            e.stateTimer -= dt;
+            if (e.state === 'moving' && e.stateTimer <= 0) { e.vx = 0; e.state = 'shooting'; e.stateTimer = 2.0; e.shotsFired = 0; } 
+            else if (e.state === 'shooting') {
+                if (e.stateTimer % 0.3 < 0.1 && e.shotsFired < 6) { mines.push({ x: e.x, y: e.y, vx: 0, vy: 150, radius: 6 }); e.shotsFired++; }
+                if (e.stateTimer <= 0) { e.vx = (e.x < 400 ? 1 : -1) * 100; e.state = 'moving'; e.stateTimer = 3.0; }
+            }
+            if (e.x < -200 || e.x > 1000) { enemies.splice(i, 1); continue; }
+        }
+
+        if (Math.hypot(e.x - ship.x, e.y - ship.y) < e.radius + ship.radius) takeDamage("與敵機相撞！"); 
+        if (checkBulletHit(e, e.radius)) {
+            e.hp--; playCrunchSound(); createExplosion(e.x, e.y, '#f88', 5);
+            if(e.hp <= 0) {
+                createExplosion(e.x, e.y, '#f44', 30);
+                score += 250; 
+                spawnPickupAtEdge(Math.random() > 0.5 ? 'AMMO' : 'BOMB', e.x, e.y);
+                enemies.splice(i, 1);
+            }
+        }
+    }
+
+    for (let i = mines.length - 1; i >= 0; i--) {
+        let m = mines[i]; m.x += m.vx * dt; m.y += m.vy * dt;
+        if (m.x < -50 || m.x > 850 || m.y < -50 || m.y > 850) { mines.splice(i, 1); continue; }
+        if (Math.hypot(m.x - ship.x, m.y - ship.y) < m.radius + ship.radius) takeDamage("觸雷身亡！"); 
+    }
+
+    let pullForce = ship.weapon === 'Magnet' ? 450 : 150; 
+    for (let i = pickups.length - 1; i >= 0; i--) {
+        let p = pickups[i]; p.life -= dt; if(p.life <= 0) { pickups.splice(i, 1); continue; }
+        let dx = ship.x - p.x; let dy = ship.y - p.y; let dist = Math.hypot(dx, dy);
+        if (dist > 5) { p.vx += (dx / dist) * pullForce * dt; p.vy += (dy / dist) * pullForce * dt; }
+        p.vx *= 0.96; p.vy *= 0.96; 
+        p.x += p.vx * dt; p.y += p.vy * dt;
+
+        if (dist < ship.radius + p.radius) {
+            if (p.type === 'AMMO') ship.ammo = Math.min(100, ship.ammo + 5);
+            else if (p.type === 'BOMB') ship.bombs = Math.min(4, ship.bombs + 1);
+            else if (p.type === 'LIFE') ship.lives = Math.min(4, ship.lives + 1); 
+            else { 
+                // 拾取武器時切換，舊武器立即替換（不再有計時器）
+                ship.weapon = p.type; 
+                ship.ammo = 100;
+            }
+            createExplosion(p.x, p.y, '#fff', 10); pickups.splice(i, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i]; p.life -= dt;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        p.x += p.vx * dt; p.y += p.vy * dt;
+    }
+
+    document.getElementById('ammoDisplay').innerText = "AMMO: " + Math.floor(ship.ammo);
+    document.getElementById('ammoDisplay').style.color = ship.ammo <= 0 ? '#f00' : '#0f0';
+    document.getElementById('weaponDisplay').innerText = "WEAPON: " + ship.weapon.toUpperCase();
+    document.getElementById('weaponDisplay').style.color = (ship.weapon === 'Basic') ? '#fff' : WEAPONS_MAP[ship.weapon].color;
+    document.getElementById('autoFireDisplay').innerText = "[F] AUTO-FIRE: " + (isAutoFire ? "ON (-25% COST)" : "OFF");
+    document.getElementById('autoFireDisplay').style.color = isAutoFire ? "#f00" : "#aaa";
+    document.getElementById('energyBar').style.width = ship.energy + '%';
+    document.getElementById('scoreDisplay').innerText = "SCORE: " + score;
+    document.getElementById('highScoreDisplay').innerText = "HIGH SCORE: " + highScore;
+    document.getElementById('bombsDisplay').innerText = "BOMBS: " + ship.bombs;
+    document.getElementById('shieldsDisplay').innerText = "SHIELDS: " + ship.lives;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    if (shakeTime > 0) {
+        let shakeX = (Math.random() - 0.5) * 15;
+        let shakeY = (Math.random() - 0.5) * 15;
+        ctx.translate(shakeX, shakeY);
+    }
+
+    particles.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = p.life / p.maxLife; ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI*2); ctx.fill(); });
+    ctx.globalAlpha = 1.0;
+
+    pickups.forEach(p => {
+        let pColor = p.type === 'AMMO' ? '#0f0' : (p.type === 'BOMB' ? '#ff0' : (p.type === 'LIFE' ? '#0f8' : (WEAPONS_MAP[p.type] ? WEAPONS_MAP[p.type].color : '#fff')));
+        ctx.shadowBlur = 10; ctx.shadowColor = pColor; ctx.strokeStyle = pColor; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.stroke();
+        ctx.shadowBlur = 0; ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 14px Courier New'; ctx.textAlign = 'center';
+        let text = p.type === 'AMMO' ? '+5' : (p.type === 'BOMB' ? 'B' : (p.type === 'LIFE' ? '🛡️' : WEAPONS_MAP[p.type].char));
+        ctx.fillText(text, p.x, p.y + 5);
+    });
+
+    bullets.forEach(b => { ctx.fillStyle = b.color; ctx.shadowBlur = 10; ctx.shadowColor = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.fill(); });
+    ctx.shadowBlur = 0;
+
+    if (ship.weapon === 'Shield' && !isGameOver) {
+        ctx.fillStyle = '#f00'; ctx.shadowBlur = 10; ctx.shadowColor = '#f00';
+        for(let s=0; s<5; s++) { ctx.beginPath(); ctx.arc(ship.x + Math.cos(ship.shieldAngle+(Math.PI*2/5)*s)*35, ship.y + Math.sin(ship.shieldAngle+(Math.PI*2/5)*s)*35, 6, 0, Math.PI*2); ctx.fill(); }
+        ctx.shadowBlur = 0;
+    }
+
+    ctx.strokeStyle = '#fff';
+    meteors.forEach(m => { ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI*2); ctx.stroke(); ctx.beginPath(); ctx.arc(m.x, m.y, m.radius*0.3, 0, Math.PI*2); ctx.stroke(); });
+    ctx.fillStyle = '#f00'; mines.forEach(m => { ctx.beginPath(); ctx.arc(m.x, m.y, m.radius, 0, Math.PI*2); ctx.fill(); });
+
+    enemies.forEach(e => {
+        if(e.type === 'bomb') { ctx.strokeStyle = '#fa0'; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius, 0, Math.PI*2); ctx.stroke(); }
+        else if(e.type === 'green') { ctx.strokeStyle = '#0f0'; ctx.beginPath(); ctx.moveTo(e.x+e.radius, e.y); ctx.lineTo(e.x-e.radius, e.y-e.radius); ctx.lineTo(e.x-e.radius, e.y+e.radius); ctx.closePath(); ctx.stroke(); }
+        else if(e.type === 'red') { ctx.strokeStyle = '#f00'; ctx.beginPath(); ctx.moveTo(e.x+e.radius, e.y); ctx.lineTo(e.x-e.radius, e.y-e.radius); ctx.lineTo(e.x-e.radius, e.y+e.radius); ctx.closePath(); ctx.stroke(); }
+        else { ctx.strokeStyle = '#f88'; ctx.beginPath(); ctx.moveTo(e.x+e.radius, e.y); ctx.lineTo(e.x-e.radius, e.y-e.radius); ctx.lineTo(e.x-e.radius, e.y+e.radius); ctx.closePath(); ctx.stroke(); }
+    });
+
+    if (!isGameOver) {
+        if (ship.invincibleTimer > 0 && Math.floor(gameTime * 15) % 2 === 0) {} 
+        else {
+            ctx.translate(ship.x, ship.y); ctx.rotate(ship.angle);
+            ctx.strokeStyle = ship.invincibleTimer > 0 ? '#0f8' : '#fff'; 
+            ctx.fillStyle = '#000'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(ship.radius, 0); ctx.lineTo(-ship.radius, -ship.radius * 0.8);
+            ctx.lineTo(-ship.radius * 0.5, 0); ctx.lineTo(-ship.radius, ship.radius * 0.8);
+            ctx.closePath(); ctx.fill(); ctx.stroke(); 
+        }
+    }
+    
+    ctx.restore(); 
+}
+
+ship = initShip();
+bullets = []; meteors = []; enemies = []; mines = []; particles = []; pickups = [];
+draw();
+
+function gameLoop(timestamp) {
+    let dt = (timestamp - lastTime) / 1000; lastTime = timestamp;
+    if (dt > 0.1) dt = 0.1; 
+    update(dt); draw();
+    if(!isGameOver) requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>
